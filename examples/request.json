@@ -1,0 +1,12 @@
+{
+  "course_name": "Advanced Python Programming",
+  "issued_by": "Arena Academy",
+  "issued_on": "2026-10-11",
+  "recipients": [
+    { "full_name": "Priya Sharma", "email": "priya@example.com" },
+    { "full_name": "Rahul Verma", "email": "rahul@example.com" },
+    { "full_name": "Aisha Khan", "email": "aisha@example.com" },
+    { "full_name": "   ", "email": "blank-name@example.com" },
+    { "full_name": "Bad Email", "email": "not-an-email" }
+  ]
+}

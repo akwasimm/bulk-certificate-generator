@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cert_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cert_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-certificates}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cert_user} -d ${POSTGRES_DB:-certificates}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cert_user}:${POSTGRES_PASSWORD:-cert_pass}@db:5432/${POSTGRES_DB:-certificates}
+      STORAGE_DIR: /data/certificates
+      MAX_RECIPIENTS_PER_JOB: "1000"
+      MAX_WORKERS: "4"
+      WEB_CONCURRENCY: "2"
+      PORT: "8000"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      API_KEY: ${API_KEY:-}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - certfiles:/data/certificates
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    command: celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=4
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cert_user}:${POSTGRES_PASSWORD:-cert_pass}@db:5432/${POSTGRES_DB:-certificates}
+      STORAGE_DIR: /data/certificates
+      MAX_WORKERS: "4"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - certfiles:/data/certificates
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  certfiles:
